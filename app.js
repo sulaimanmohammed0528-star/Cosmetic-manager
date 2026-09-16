@@ -2,6 +2,9 @@
 let materials = JSON.parse(localStorage.getItem('cosmetic_materials')) || [];
 let recipes = JSON.parse(localStorage.getItem('cosmetic_recipes')) || [];
 let orders = JSON.parse(localStorage.getItem('cosmetic_orders')) || [];
+const APP_VERSION = 'v1.0.0';
+// Default webhook / sheet URL (user-provided). Stored in localStorage under 'sheets_webhook'.
+const DEFAULT_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/11aKW-aMswgq4Rsn9u4mH6_nZHymA1gn3lkX77zVxW58/edit?gid=0#gid=0';
 let temporaryRecipeIngredients = [], temporaryPresetRules = [], temporaryOrderBasket = [];
 
 // Register background offline tools safely without using modules
@@ -29,6 +32,17 @@ window.addEventListener('DOMContentLoaded', () => {
     if (savedKey1 || savedKey2) {
         document.querySelector('.ai-glass-panel').style.display = 'none';
     }
+
+    // show version label if present
+    const verEl = document.getElementById('appVersion'); if (verEl) verEl.innerText = APP_VERSION;
+
+    // prefill Sheets webhook input from localStorage or default, and autosave on change
+    const sheetInput = document.getElementById('sheetsWebhook');
+    try {
+        const saved = localStorage.getItem('sheets_webhook');
+        if (sheetInput) sheetInput.value = saved || DEFAULT_SHEETS_URL || '';
+        if (sheetInput) sheetInput.addEventListener('change', (e) => { localStorage.setItem('sheets_webhook', (e.target.value||'').trim()); });
+    } catch (e) { console.warn('sheets webhook localStorage error', e); }
     
     // Unhide trick: Clicking the main suite title toggles your key config panel
     const logo = document.querySelector('.logo-area');
