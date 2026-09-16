@@ -429,36 +429,47 @@ function escapeHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g
 function buildInvoiceHtml(order) {
         const d = getCompanyDetails();
         const date = new Date(order.date || Date.now()).toLocaleString();
-        const itemsRows = (order.items||[]).map(i => {
+        const itemsRows = (order.items||[]).map((i, idx) => {
                 const desc = escapeHtml(i.recipeName || 'Item');
+                const preset = (i.presetLabel && i.presetLabel !== '__default__') ? escapeHtml(i.presetLabel) : '';
                 const qty = Number(i.qty||1);
                 const unit = Number(i.unitPrice||0);
                 const line = (qty * unit).toFixed(2);
-                return `<tr><td style="padding:8px; border-bottom:1px solid #eee;">${desc}${i.presetLabel && i.presetLabel!=='__default__' ? ' <small>('+escapeHtml(i.presetLabel)+')</small>' : ''}</td><td style="padding:8px; text-align:center; border-bottom:1px solid #eee;">${qty}</td><td style="padding:8px; text-align:right; border-bottom:1px solid #eee;">Rs. ${unit.toFixed(2)}</td><td style="padding:8px; text-align:right; border-bottom:1px solid #eee;">Rs. ${line}</td></tr>`;
+                return `<tr><td style="padding:10px; border-bottom:1px solid #eee;">${idx+1}. ${desc}${preset? ' <small>('+preset+')</small>':''}</td><td style="padding:10px; text-align:center; border-bottom:1px solid #eee;">${qty}</td><td style="padding:10px; text-align:right; border-bottom:1px solid #eee;">Rs. ${unit.toFixed(2)}</td><td style="padding:10px; text-align:right; border-bottom:1px solid #eee;">Rs. ${line}</td></tr>`;
         }).join('');
         const subtotal = (order.items||[]).reduce((s,i)=> s + ((Number(i.unitPrice)||0) * (Number(i.qty)||1)), 0);
+        const tax = 0; // placeholder for future tax calc
+        const total = subtotal + tax;
         const cust = escapeHtml(order.customerName || '');
         const contact = escapeHtml(order.contact || '');
         const payment = escapeHtml(order.paymentStatus || '');
         const headerLogo = d.logo ? `<img src="${d.logo}" style="height:64px; object-fit:contain; margin-right:12px;" alt="logo">` : '';
+        const bankInfo = d.bankName ? `<div style="font-size:12px; color:#333;">Bank: ${escapeHtml(d.bankName)} • A/C: ${escapeHtml(d.bankAccount||'')}</div>` : '';
         return `
-        <div style="max-width:800px; margin:0 auto; font-family: Arial, Helvetica, sans-serif; color:#111;">
+        <div style="max-width:820px; margin:0 auto; font-family: Arial, Helvetica, sans-serif; color:#111;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
-                <div style="display:flex; align-items:center; gap:12px;">${headerLogo}<div><div style="font-size:20px; font-weight:800;">${escapeHtml(d.name||'')}</div><div style="font-size:12px; color:#333;">${escapeHtml(d.address||'')}</div><div style="font-size:12px; color:#333;">${escapeHtml(d.phone||'')} ${d.email? '• ' + escapeHtml(d.email): ''}</div></div></div>
-                <div style="text-align:right; font-size:12px; color:#333;"><div style="font-weight:700; font-size:16px;">Invoice</div><div>#${order.id}</div><div>${date}</div></div>
+                <div style="display:flex; align-items:center; gap:12px;">${headerLogo}<div><div style="font-size:20px; font-weight:800;">${escapeHtml(d.name||'')}</div><div style="font-size:12px; color:#333;">${escapeHtml(d.address||'')}</div><div style="font-size:12px; color:#333;">${escapeHtml(d.phone||'')} ${d.email? '• ' + escapeHtml(d.email): ''}</div>${bankInfo}</div></div>
+                <div style="text-align:right; font-size:12px; color:#333;"><div style="font-weight:800; font-size:18px;">TAX INVOICE</div><div style="margin-top:6px;">Invoice #: <strong>${order.id}</strong></div><div>${date}</div></div>
             </div>
-            <div style="margin-bottom:12px; display:flex; justify-content:space-between;">
-                <div><strong>Bill To:</strong><div>${cust}</div><div style="font-size:12px; color:#444;">${contact}</div></div>
-                <div style="text-align:right;"><strong>Payment Status:</strong><div>${payment}</div></div>
+            <div style="margin-bottom:14px; display:flex; justify-content:space-between; gap:12px; align-items:flex-start;">
+                <div style="min-width:50%;"><div style="font-weight:700;">Bill To</div><div style="margin-top:6px;">${cust}</div><div style="font-size:12px; color:#444; margin-top:4px;">${contact}</div></div>
+                <div style="min-width:30%; text-align:right;"><div style="font-weight:700;">Payment</div><div style="margin-top:6px;">Status: ${payment}</div></div>
             </div>
             <table style="width:100%; border-collapse:collapse; margin-bottom:12px;">
-                <thead><tr style="background:#f3f4f6;"><th style="text-align:left; padding:8px;">Description</th><th style="width:80px; text-align:center;">Qty</th><th style="width:120px; text-align:right;">Unit</th><th style="width:140px; text-align:right;">Line Total</th></tr></thead>
+                <thead><tr style="background:#f6f7f9;"><th style="text-align:left; padding:10px;">Description</th><th style="width:90px; text-align:center;">Qty</th><th style="width:140px; text-align:right;">Unit Price</th><th style="width:160px; text-align:right;">Line Total</th></tr></thead>
                 <tbody>${itemsRows}</tbody>
             </table>
-            <div style="display:flex; justify-content:flex-end; gap:12px; font-size:14px; font-weight:700;">
-                <div style="text-align:right;">Subtotal:<div style="font-size:18px; margin-top:6px;">Rs. ${subtotal.toFixed(2)}</div></div>
+            <div style="display:flex; justify-content:flex-end; gap:18px; font-size:14px; margin-top:6px;">
+                <div style="text-align:right; min-width:220px;"><div>Subtotal</div><div style="font-size:18px; font-weight:800; margin-top:6px;">Rs. ${subtotal.toFixed(2)}</div></div>
             </div>
-            <div style="margin-top:28px; font-size:12px; color:#555;">Thank you for your purchase. Generated by Cosmetic Lab Suite.</div>
+            <div style="display:flex; justify-content:flex-end; gap:18px; font-size:14px; margin-top:6px;">
+                <div style="text-align:right; min-width:220px;"><div>Tax</div><div style="font-size:16px; font-weight:600; margin-top:6px;">Rs. ${tax.toFixed(2)}</div></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:18px; font-size:16px; font-weight:900; margin-top:12px;">
+                <div style="text-align:right; min-width:220px;">Total Due<div style="font-size:20px; margin-top:6px;">Rs. ${total.toFixed(2)}</div></div>
+            </div>
+            <div style="margin-top:26px; font-size:12px; color:#555;">${escapeHtml(d.name||'')} — Thank you for your business.</div>
+            <div style="margin-top:8px; font-size:11px; color:#888;">Generated by Cosmetic Lab Suite</div>
         </div>
         `;
 }
