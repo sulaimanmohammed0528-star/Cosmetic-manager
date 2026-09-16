@@ -194,6 +194,10 @@
                             <input type="number" id="orderProductQty" value="1" min="1" style="width:80px;">
                             <button class="action-btn-secondary" onclick="addItemToOrderBasket()">Add Item</button>
                         </div>
+                        <div style="display:flex; gap:8px; margin-top:6px;">
+                            <input type="text" id="orderCustomName" placeholder="Custom product name (if not selecting above)" style="flex:1;">
+                            <input type="number" id="orderCustomPrice" placeholder="Price" style="width:110px;">
+                        </div>
                         <ul id="orderBasket" style="min-height:40px; border:1px dashed #ccc; padding:8px; border-radius:6px;"></ul>
                         <input type="text" id="orderCustName" placeholder="Customer name">
                         <input type="text" id="orderCustContact" placeholder="Contact (phone/email)">

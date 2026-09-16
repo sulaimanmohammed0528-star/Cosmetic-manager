@@ -85,10 +85,20 @@ function renderIngredients() {
     const grid = document.getElementById('ingredientsGrid'); grid.innerHTML = '';
     materials.forEach(m => {
         const div = document.createElement('div'); div.className = 'card';
-        div.innerHTML = `<h4>${m.name}</h4><p>Type: <strong>${m.type.toUpperCase()}</strong></p><p>Cost: Rs. ${m.price.toFixed(2)}</p><button onclick="deleteMaterial('${m.id}')" style="background:#dc3545; font-size:12px; padding:4px; width:100%; border-radius:6px; border:none; color:white;">Remove</button>`;
+        div.innerHTML = `<h4>${m.name}</h4><p>Type: <strong>${m.type.toUpperCase()}</strong></p><p>Cost: Rs. ${Number(m.price).toFixed(2)}</p><div style="display:flex; gap:8px; margin-top:8px;"><button onclick="editMaterial('${m.id}')" style="background:#0284c7; font-size:12px; padding:6px; flex:1; border-radius:6px; border:none; color:white;">Edit</button><button onclick="deleteMaterial('${m.id}')" style="background:#dc3545; font-size:12px; padding:6px; flex:1; border-radius:6px; border:none; color:white;">Remove</button></div>`;
         grid.appendChild(div);
     });
 }
+
+window.editMaterial = function(id) {
+    const m = materials.find(x => x.id === id); if (!m) return alert('Material not found');
+    const newName = prompt('Edit material name:', m.name); if (newName === null) return; // cancelled
+    const newPriceRaw = prompt('Edit price (LKR) — numbers only:', String(m.price)); if (newPriceRaw === null) return;
+    const newPrice = parseFloat(newPriceRaw.replace(/[^0-9\.\-]/g, ''));
+    if (isNaN(newPrice)) return alert('Invalid price');
+    m.name = newName.trim() || m.name; m.price = newPrice;
+    persistAndSync();
+};
 
 function syncDropdownOptions() {
     const ingSelect = document.getElementById('recipeIngSelect');
@@ -190,14 +200,25 @@ function renderRecipes() {
 }
 // PART 5A: CHECKOUT CART BASKET & INVOICE GRID LEDGER RENDERER
 window.addItemToOrderBasket = function() {
-    const value = document.getElementById('orderProductSelect').value;
+    const prodSelect = document.getElementById('orderProductSelect');
     const qty = parseInt(document.getElementById('orderProductQty').value) || 1;
-    if (!value) return;
-    const [rId, pLabel] = value.split('::');
-    const recipe = recipes.find(r => r.id === rId);
-    const preset = recipe.presets.find(p => p.label === pLabel);
-    temporaryOrderBasket.push({ recipeId: rId, recipeName: recipe.name, presetLabel: pLabel, qty, unitPrice: preset.finalPrice, unitCost: preset.calculatedCost, fractionCost: preset.fractionCost, containerPrice: preset.containerPrice });
-    const li = document.createElement('li'); li.innerHTML = `<strong>${qty}x</strong> ${recipe.name} (${pLabel})`;
+    let item = null;
+    if (prodSelect && prodSelect.value) {
+        const value = prodSelect.value;
+        const [rId, pLabel] = value.split('::');
+        const recipe = recipes.find(r => r.id === rId);
+        const preset = recipe && recipe.presets ? recipe.presets.find(p => p.label === pLabel) : null;
+        if (!recipe || !preset) return alert('Selected product not found.');
+        item = { recipeId: rId, recipeName: recipe.name, presetLabel: pLabel, qty, unitPrice: preset.finalPrice, unitCost: preset.calculatedCost, fractionCost: preset.fractionCost, containerPrice: preset.containerPrice };
+    } else {
+        // allow ad-hoc custom product
+        const cname = (document.getElementById('orderCustomName') || {}).value || '';
+        const cprice = parseFloat((document.getElementById('orderCustomPrice') || {}).value) || 0;
+        if (!cname) return alert('Enter a product name or select a product.');
+        item = { recipeId: null, recipeName: cname, presetLabel: 'Custom', qty, unitPrice: cprice, unitCost: 0, fractionCost: 0, containerPrice: 0 };
+    }
+    temporaryOrderBasket.push(item);
+    const li = document.createElement('li'); li.innerHTML = `<strong>${qty}x</strong> ${item.recipeName} ${item.presetLabel ? '('+item.presetLabel+')' : ''} - Rs. ${(item.unitPrice*item.qty).toFixed(2)}`;
     document.getElementById('orderBasket').appendChild(li);
 };
 
@@ -324,10 +345,16 @@ function handleImportMaterials(event) {
 }
 
 function filterIngredientOptions() {
-    const q = (document.getElementById('recipeIngSearch') ? document.getElementById('recipeIngSearch').value : '').toLowerCase();
+    const q = (document.getElementById('recipeIngSearch') ? document.getElementById('recipeIngSearch').value.trim().toLowerCase() : '');
     const sel = document.getElementById('recipeIngSelect'); if (!sel) return;
-    for (let i = 0; i < sel.options.length; i++) {
-        const opt = sel.options[i]; opt.hidden = q && !opt.text.toLowerCase().includes(q);
+    // rebuild options to avoid relying on option.hidden (inconsistent across browsers)
+    sel.innerHTML = '';
+    const candidates = materials.filter(m => m.type === 'ingredient' && (!q || m.name.toLowerCase().includes(q)));
+    if (candidates.length === 0 && q) {
+        // if no match, show all as fallback
+        materials.filter(m => m.type === 'ingredient').forEach(m => sel.innerHTML += `<option value="${m.id}">${m.name} (Rs.${m.price}/g)</option>`);
+    } else {
+        candidates.forEach(m => sel.innerHTML += `<option value="${m.id}">${m.name} (Rs.${m.price}/g)</option>`);
     }
 }
 
