@@ -52,6 +52,9 @@ window.addEventListener('DOMContentLoaded', () => {
         if (sheetInput) sheetInput.value = saved || DEFAULT_SHEETS_URL || '';
         if (sheetInput) sheetInput.addEventListener('change', (e) => { localStorage.setItem('sheets_webhook', (e.target.value||'').trim()); });
     } catch (e) { console.warn('sheets webhook localStorage error', e); }
+    // wire header buttons (export/test/sync) if present
+    const testBtn = $id('testSheetsWebhook'); if (testBtn) testBtn.addEventListener('click', testSheetWebhook);
+    const exportHeader = $id('exportMaterialsHeaderBtn'); if (exportHeader) exportHeader.addEventListener('click', exportMaterials);
     
     // Unhide trick: Clicking the main suite title toggles your key config panel
     const logo = document.querySelector('.logo-area');
@@ -74,7 +77,16 @@ window.addEventListener('DOMContentLoaded', () => {
             if (targetContent) {
                 targetContent.classList.add('active');
                 // ensure visible and scrolled into view on small screens
-                try { targetContent.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(e) {}
+                try { targetContent.style.display = ''; targetContent.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(e) {}
+                // force inputs/selects visible and trigger select render
+                try {
+                    Array.from(targetContent.querySelectorAll('input, select, button, textarea')).forEach(el => {
+                        el.style.display = '';
+                        if (el.tagName && el.tagName.toLowerCase() === 'select') {
+                            try { el.dispatchEvent(new Event('change')); } catch(e) {}
+                        }
+                    });
+                } catch(e) {}
             }
             btn.classList.add('active');
             // refresh dropdowns when switching tabs to avoid zero-size/select issues
@@ -109,8 +121,8 @@ window.addMaterial = function() {
     if (!name || isNaN(price)) return alert("Please fulfill raw entry values.");
     materials.push({ id: Date.now().toString(), name, price, type });
     persistAndSync();
-    document.getElementById('matName').value = ''; 
-    document.getElementById('matPrice').value = '';
+    if (nameEl) nameEl.value = '';
+    if (priceEl) priceEl.value = '';
 };
 
 window.deleteMaterial = function(id) { 
@@ -166,49 +178,52 @@ function syncDropdownOptions() {
 }
 
 window.addIngredientToRecipe = function() {
-    const id = document.getElementById('recipeIngSelect').value;
-    const qty = parseFloat(document.getElementById('recipeIngQty').value);
+    const id = $val('recipeIngSelect');
+    const qty = parseFloat($val('recipeIngQty'));
     const material = materials.find(m => m.id === id);
     if (!material || isNaN(qty) || qty <= 0) return;
     temporaryRecipeIngredients.push({ materialId: id, name: material.name, qty, pricePerGram: material.price });
-    document.getElementById('recipeIngQty').value = ''; calculateActiveRecipe();
+    const qtyEl = $id('recipeIngQty'); if (qtyEl) qtyEl.value = '';
+    calculateActiveRecipe();
 };
 
 window.removeRecipeIngredient = function(index) { temporaryRecipeIngredients.splice(index, 1); calculateActiveRecipe(); };
 window.calculateActiveRecipe = function() {
-    const tbody = document.getElementById('recipeRows'); tbody.innerHTML = '';
+    const tbody = $id('recipeRows'); if (!tbody) return;
+    $setHtml('recipeRows', '');
     let totalWeight = 0, rawCost = 0;
     temporaryRecipeIngredients.forEach((ing, idx) => {
         const itemCost = ing.qty * ing.pricePerGram; totalWeight += ing.qty; rawCost += itemCost;
         tbody.innerHTML += `<tr><td><strong>${ing.name}</strong></td><td>${ing.qty}g</td><td>Rs. ${ing.pricePerGram.toFixed(2)}</td><td>Rs. ${itemCost.toFixed(2)}</td><td><button onclick="removeRecipeIngredient(${idx})" style="background:#dc3545; padding:2px 6px;">x</button></td></tr>`;
     });
-    const otherCost = parseFloat(document.getElementById('batchOther').value) || 0;
-    const profitInput = parseFloat(document.getElementById('batchProfit').value) || 0;
+    const otherCost = parseFloat($val('batchOther')) || 0;
+    const profitInput = parseFloat($val('batchProfit')) || 0;
     let finalCost = rawCost + otherCost;
-    if (document.getElementById('batchProfitType').value === 'percent') finalCost += (finalCost * (profitInput / 100)); else finalCost += profitInput;
-    document.getElementById('lblBatchWeight').innerText = totalWeight.toFixed(1);
-    document.getElementById('lblBatchRawCost').innerText = rawCost.toFixed(2);
-    document.getElementById('lblBatchFinalCost').innerText = finalCost.toFixed(2);
+    if ($val('batchProfitType') === 'percent') finalCost += (finalCost * (profitInput / 100)); else finalCost += profitInput;
+    $setText('lblBatchWeight', totalWeight.toFixed(1));
+    $setText('lblBatchRawCost', rawCost.toFixed(2));
+    $setText('lblBatchFinalCost', finalCost.toFixed(2));
 };
 
 window.addPresetRule = function() {
-    const label = document.getElementById('presetLabel').value.trim();
-    const weight = parseFloat(document.getElementById('presetWeight').value);
-    const containerId = document.getElementById('presetContainerSelect').value;
-    const profit = parseFloat(document.getElementById('presetProfit').value) || 0;
-    const profitType = document.getElementById('presetProfitType').value;
+    const label = $val('presetLabel').trim();
+    const weight = parseFloat($val('presetWeight'));
+    const containerId = $val('presetContainerSelect');
+    const profit = parseFloat($val('presetProfit')) || 0;
+    const profitType = $val('presetProfitType');
     const container = materials.find(m => m.id === containerId);
     if (!label || isNaN(weight) || !container) return alert("Fill fields.");
     temporaryPresetRules.push({ label, weight, containerId, containerName: container.name, containerPrice: container.price, profit, profitType });
     const li = document.createElement('li'); li.innerText = `${label}: ${weight}g [${container.name}]`;
-    document.getElementById('presetRulesList').appendChild(li);
-    document.getElementById('presetLabel').value = ''; document.getElementById('presetWeight').value = '';
+    const rulesList = $id('presetRulesList'); if (rulesList) rulesList.appendChild(li);
+    const pLabelEl = $id('presetLabel'); if (pLabelEl) pLabelEl.value = '';
+    const pWeightEl = $id('presetWeight'); if (pWeightEl) pWeightEl.value = '';
 };
 
 window.saveRecipe = function() {
-    const name = document.getElementById('recipeName').value.trim();
-    const rawBatchCost = parseFloat(document.getElementById('lblBatchRawCost').innerText);
-    const totalBatchWeight = parseFloat(document.getElementById('lblBatchWeight').innerText);
+    const name = $val('recipeName').trim();
+    const rawBatchCost = parseFloat($val('lblBatchRawCost')) || 0;
+    const totalBatchWeight = parseFloat($val('lblBatchWeight')) || 0;
     if (!name || temporaryRecipeIngredients.length === 0) return alert("Missing structural details.");
     const processedPresets = temporaryPresetRules.map(rule => {
         const factor = totalBatchWeight > 0 ? (rule.weight / totalBatchWeight) : 0;
@@ -220,17 +235,20 @@ window.saveRecipe = function() {
     });
     recipes.push({ id: Date.now().toString(), name, ingredients: [...temporaryRecipeIngredients], rawBatchCost, totalBatchWeight, presets: processedPresets });
     temporaryRecipeIngredients = []; temporaryPresetRules = [];
-    document.getElementById('recipeRows').innerHTML = ''; document.getElementById('presetRulesList').innerHTML = '';
-    document.getElementById('recipeName').value = ''; persistAndSync(); renderRecipes();
+    const rr = $id('recipeRows'); if (rr) rr.innerHTML = '';
+    const pr = $id('presetRulesList'); if (pr) pr.innerHTML = '';
+    const rName = $id('recipeName'); if (rName) rName.value = '';
+    persistAndSync(); renderRecipes();
 };
 
 window.deleteRecipe = function(id) { recipes = recipes.filter(r => r.id !== id); persistAndSync(); renderRecipes(); };
 
 function renderRecipes() {
-    const grid = document.getElementById('recipeGrid'); grid.innerHTML = '';
+    const grid = $id('recipeGrid'); if (!grid) return;
+    grid.innerHTML = '';
     recipes.forEach(r => {
         let pHTML = '';
-        r.presets.forEach(p => { pHTML += `<div style="font-size:12px; background:#1e293b; padding:6px; margin-top:6px; border-radius:6px; color:#fff;"><strong>${p.label}</strong><br>Cost: Rs. ${p.calculatedCost.toFixed(2)} | Price: <strong>Rs. ${p.finalPrice.toFixed(2)}</strong></div>`; });
+        (r.presets||[]).forEach(p => { pHTML += `<div style="font-size:12px; background:#1e293b; padding:6px; margin-top:6px; border-radius:6px; color:#fff;"><strong>${p.label}</strong><br>Cost: Rs. ${Number(p.calculatedCost||0).toFixed(2)} | Price: <strong>Rs. ${Number(p.finalPrice||0).toFixed(2)}</strong></div>`; });
         const div = document.createElement('div'); div.className = 'card';
         div.innerHTML = `<h3>🧪 ${r.name}</h3><p class="hint">Batch: ${r.totalBatchWeight}g</p>${pHTML}<div style="display:flex; gap:6px; margin-top:12px;"><button onclick="window.print()" style="background:#0284c7; font-size:11px; flex:1;">🖨️ Print</button><button onclick="deleteRecipe('${r.id}')" style="background:#dc3545; font-size:11px; width:35px;">✕</button></div>`;
         grid.appendChild(div);
@@ -238,8 +256,8 @@ function renderRecipes() {
 }
 // PART 5A: CHECKOUT CART BASKET & INVOICE GRID LEDGER RENDERER
 window.addItemToOrderBasket = function() {
-    const prodSelect = document.getElementById('orderProductSelect');
-    const qty = parseInt(document.getElementById('orderProductQty').value) || 1;
+    const prodSelect = $id('orderProductSelect');
+    const qty = parseInt($val('orderProductQty')) || 1;
     let item = null;
     if (prodSelect && prodSelect.value) {
         const value = prodSelect.value;
@@ -257,16 +275,16 @@ window.addItemToOrderBasket = function() {
     }
     temporaryOrderBasket.push(item);
     const li = document.createElement('li'); li.innerHTML = `<strong>${qty}x</strong> ${item.recipeName} ${item.presetLabel ? '('+item.presetLabel+')' : ''} - Rs. ${(item.unitPrice*item.qty).toFixed(2)}`;
-    document.getElementById('orderBasket').appendChild(li);
+    const ob = $id('orderBasket'); if (ob) ob.appendChild(li);
 };
 
 window.submitFinalOrder = async function() {
-    const name = document.getElementById('orderCustName').value.trim();
+    const name = $val('orderCustName').trim();
     if (!name || temporaryOrderBasket.length === 0) return alert("Basket empty.");
-    const newOrder = { id: Date.now().toString(), customerName: name, contact: document.getElementById('orderCustContact').value.trim(), items: [...temporaryOrderBasket], paymentStatus: document.getElementById('orderPayStatus').value, deliveryStatus: document.getElementById('orderDevStatus').value, date: new Date().toISOString() };
+    const newOrder = { id: Date.now().toString(), customerName: name, contact: $val('orderCustContact').trim(), items: [...temporaryOrderBasket], paymentStatus: $val('orderPayStatus'), deliveryStatus: $val('orderDevStatus'), date: new Date().toISOString() };
     orders.push(newOrder);
-    temporaryOrderBasket = []; document.getElementById('orderBasket').innerHTML = '';
-    document.getElementById('orderCustName').value = ''; document.getElementById('orderCustContact').value = '';
+    temporaryOrderBasket = []; const ob = $id('orderBasket'); if (ob) ob.innerHTML = '';
+    const oc = $id('orderCustName'); if (oc) oc.value = ''; const occ = $id('orderCustContact'); if (occ) occ.value = '';
     persistAndSync(); renderOrders(); calculateEarnings(); scanForPendingAlerts();
     try { await sendOrderToGoogle(newOrder); } catch (e) { console.warn('Send to Google failed', e); }
 };
@@ -305,22 +323,23 @@ window.printSingleInvoice = function(buttonEl) {
 function calculateEarnings() {
     let rev = 0, cost = 0, other = 0;
     orders.forEach(o => { o.items.forEach(i => { rev += (i.unitPrice * i.qty); cost += ((i.fractionCost + i.containerPrice) * i.qty); other += ((i.unitCost - (i.fractionCost + i.containerPrice)) * i.qty); }); });
-    document.getElementById('totalRevenue').innerText = `Rs. ${rev.toFixed(2)}`;
-    document.getElementById('totalCost').innerText = `Rs. ${cost.toFixed(2)}`;
-    document.getElementById('totalOther').innerText = `Rs. ${other.toFixed(2)}`;
-    document.getElementById('totalProfit').innerText = `Rs. ${(rev - cost - other).toFixed(2)}`;
+    $setText('totalRevenue', `Rs. ${rev.toFixed(2)}`);
+    $setText('totalCost', `Rs. ${cost.toFixed(2)}`);
+    $setText('totalOther', `Rs. ${other.toFixed(2)}`);
+    $setText('totalProfit', `Rs. ${(rev - cost - other).toFixed(2)}`);
 }
 
 window.scanForPendingAlerts = function() {
-    const banner = document.getElementById('notificationCenter'); const list = document.getElementById('notifList'); list.innerHTML = '';
+    const banner = $id('notificationCenter'); const list = $id('notifList');
+    if (list) list.innerHTML = '';
     let pending = 0, unpaid = [];
     orders.forEach(o => { if (o.deliveryStatus === 'Not Made') pending++; if (o.paymentStatus === 'Unpaid') unpaid.push(o.customerName); });
-    if (pending > 0 || unpaid.length > 0) {
+    if ((pending > 0 || unpaid.length > 0) && banner) {
         banner.classList.remove('hidden');
         if (Notification.permission === 'default') Notification.requestPermission();
-        if (pending > 0) { list.innerHTML += `<li class="alert-item production">⏳ You have <strong>${pending} pending formulations</strong> left.</li>`; sendMobileNotification("Pending Lab Orders!", `You have ${pending} formulations to mix.`); }
-        unpaid.forEach(u => { list.innerHTML += `<li class="alert-item collection">💸 <strong>Collect Funds:</strong> Ask money from <strong>${u}</strong>.</li>`; sendMobileNotification("Collect Payment!", `Remember to ask money from ${u}.`); });
-    } else banner.classList.add('hidden');
+        if (pending > 0 && list) { list.innerHTML += `<li class="alert-item production">⏳ You have <strong>${pending} pending formulations</strong> left.</li>`; sendMobileNotification("Pending Lab Orders!", `You have ${pending} formulations to mix.`); }
+        unpaid.forEach(u => { if (list) list.innerHTML += `<li class="alert-item collection">💸 <strong>Collect Funds:</strong> Ask money from <strong>${u}</strong>.</li>`; sendMobileNotification("Collect Payment!", `Remember to ask money from ${u}.`); });
+    } else if (banner) banner.classList.add('hidden');
 };
 
 window.toggleNotifPanel = function() { document.getElementById('notificationCenter').classList.add('hidden'); };
@@ -458,23 +477,23 @@ window.testSheetWebhook = async function() {
 }
 
 async function runGeminiCommand() {
-    const slot = document.getElementById('activeKeySlot').value;
-    const key1 = document.getElementById('geminiKey1').value.trim();
-    const key2 = document.getElementById('geminiKey2').value.trim();
-    const prompt = document.getElementById('aiPrompt').value.trim(); 
-    const status = document.getElementById('aiStatus');
+    const slot = $val('activeKeySlot');
+    const key1 = $val('geminiKey1').trim();
+    const key2 = $val('geminiKey2').trim();
+    const prompt = $val('aiPrompt').trim(); 
+    const status = $id('aiStatus');
     localStorage.setItem('gemini_key_1', key1); localStorage.setItem('gemini_key_2', key2);
     let activeKey = (slot === 'key1') ? key1 : key2;
-    if (!activeKey || !prompt) return alert("Provide Key and Command."); status.innerText = "Processing...";
+    if (!activeKey || !prompt) return alert("Provide Key and Command."); if (status) status.innerText = "Processing...";
     try {
         const aiEngine = new window.GoogleGenerativeAI(activeKey);
         const model = aiEngine.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { responseMimeType: "application/json" } });
         const instructions = `Map prompt to structural JSON. Action 1: {"action": "ADD_MATERIAL", "name": "Name", "price": 10.0, "type": "ingredient"/"container"}. Action 2: {"action": "ADD_ORDER", "customerName": "Name", "contact": "Phone", "paymentStatus": "Paid"/"Unpaid", "deliveryStatus": "Not Made"/"Made"}. Prompt: "${prompt}"`;
         const res = await model.generateContent(instructions); const parsed = JSON.parse(await res.response.text());
-        if (parsed.action === "ADD_MATERIAL") { materials.push({ id: Date.now().toString(), name: parsed.name, price: parsed.price, type: parsed.type }); persistAndSync(); status.innerText = `Added item: ${parsed.name}`; }
-        else if (parsed.action === "ADD_ORDER") { orders.push({ id: Date.now().toString(), customerName: parsed.customerName, contact: parsed.contact||"", items: [], paymentStatus: parsed.paymentStatus||"Unpaid", deliveryStatus: parsed.deliveryStatus||"Not Made", date: new Date().toISOString() }); persistAndSync(); renderOrders(); calculateEarnings(); scanForPendingAlerts(); status.innerText = `Log active for: ${parsed.customerName}`; }
-        document.getElementById('aiPrompt').value = '';
+        if (parsed.action === "ADD_MATERIAL") { materials.push({ id: Date.now().toString(), name: parsed.name, price: parsed.price, type: parsed.type }); persistAndSync(); if (status) status.innerText = `Added item: ${parsed.name}`; }
+        else if (parsed.action === "ADD_ORDER") { orders.push({ id: Date.now().toString(), customerName: parsed.customerName, contact: parsed.contact||"", items: [], paymentStatus: parsed.paymentStatus||"Unpaid", deliveryStatus: parsed.deliveryStatus||"Not Made", date: new Date().toISOString() }); persistAndSync(); renderOrders(); calculateEarnings(); scanForPendingAlerts(); if (status) status.innerText = `Log active for: ${parsed.customerName}`; }
+        const aiPromptEl = $id('aiPrompt'); if (aiPromptEl) aiPromptEl.value = '';
     } catch (err) { 
-        status.innerText = "Error: " + err.message; 
+        if (status) status.innerText = "Error: " + err.message; 
     }
 }
