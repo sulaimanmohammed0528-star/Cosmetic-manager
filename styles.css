@@ -270,3 +270,21 @@ input:focus, select:focus { outline: none; border-color: var(--primary-glow); }
 .hidden-key-input {
     margin-top: 4px;
 }
+
+/* MOBILE-SPECIFIC IMPROVEMENTS */
+@media (max-width: 640px) {
+    body { padding: 12px; }
+    .app-layout { padding-bottom: 88px; }
+    .app-header { padding: 16px; }
+    .ai-glass-panel { max-width: 100%; }
+    .form-structure input, .form-structure select, .search-picker-box input, .search-picker-box select, .action-btn-primary, .action-btn-secondary { font-size: 16px; padding: 14px; }
+    .search-picker-box { flex-direction: column; }
+    .search-picker-box select, .search-picker-box input { width: 100%; }
+    .order-creation .order-form { padding: 12px; }
+    .order-creation .order-form input, .order-creation .order-form select, .order-creation .order-form button { width: 100%; box-sizing: border-box; }
+    .order-creation .order-form > div { width: 100%; }
+    .order-creation ul#orderBasket { min-height: 60px; }
+
+    /* Floating action button for quick add */
+    .fab { position: fixed; right: 18px; bottom: 18px; width: 60px; height: 60px; border-radius: 50%; background: var(--primary-glow); color: #071223; border: none; box-shadow: 0 8px 20px rgba(2,6,23,0.6); font-size: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 9999; }
+}

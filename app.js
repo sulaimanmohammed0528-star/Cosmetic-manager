@@ -53,6 +53,17 @@ window.addEventListener('DOMContentLoaded', () => {
     });
     
     document.getElementById('aiBtn').addEventListener('click', runGeminiCommand);
+    const exportBtn = document.getElementById('exportMaterialsBtn'); if (exportBtn) exportBtn.addEventListener('click', exportMaterials);
+    const importFile = document.getElementById('importMaterialsFile'); if (importFile) importFile.addEventListener('change', handleImportMaterials);
+    const searchInput = document.getElementById('recipeIngSearch'); if (searchInput) searchInput.addEventListener('input', filterIngredientOptions);
+    const fab = document.getElementById('fabQuickAdd'); if (fab) fab.addEventListener('click', () => {
+        // open orders tab and focus customer name for quick mobile order entry
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        const btn = document.querySelector('.tab-btn[data-target="orders"]'); if (btn) btn.classList.add('active');
+        const content = document.getElementById('orders'); if (content) content.classList.add('active');
+        setTimeout(() => { const cust = document.getElementById('orderCustName'); if (cust) cust.focus(); }, 200);
+    });
 });
 
 window.addMaterial = function() {
@@ -83,15 +94,27 @@ function syncDropdownOptions() {
     const ingSelect = document.getElementById('recipeIngSelect');
     const conSelect = document.getElementById('presetContainerSelect');
     const prodSelect = document.getElementById('orderProductSelect');
-    if (!ingSelect || !conSelect || !prodSelect) return;
-    ingSelect.innerHTML = ''; conSelect.innerHTML = ''; prodSelect.innerHTML = '';
 
-    materials.filter(m => m.type === 'ingredient').forEach(m => { ingSelect.innerHTML += `<option value="${m.id}">${m.name} (Rs.${m.price}/g)</option>`; });
-    materials.filter(m => m.type === 'container').forEach(m => { conSelect.innerHTML += `<option value="${m.id}">${m.name} (Rs.${m.price}/pc)</option>`; });
-    recipes.forEach(r => { r.presets.forEach(p => { prodSelect.innerHTML += `<option value="${r.id}::${p.label}">${r.name} - ${p.label} (Rs.${p.finalPrice.toFixed(2)})</option>`; }); });
+    if (ingSelect) {
+        ingSelect.innerHTML = '';
+        materials.filter(m => m.type === 'ingredient').forEach(m => { ingSelect.innerHTML += `<option value="${m.id}">${m.name} (Rs.${m.price}/g)</option>`; });
+    }
 
-    const dl = document.getElementById('customersList'); dl.innerHTML = '';
-    [...new Set(orders.map(o => o.customerName))].forEach(c => { dl.innerHTML += `<option value="${c}">`; });
+    if (conSelect) {
+        conSelect.innerHTML = '';
+        materials.filter(m => m.type === 'container').forEach(m => { conSelect.innerHTML += `<option value="${m.id}">${m.name} (Rs.${m.price}/pc)</option>`; });
+    }
+
+    if (prodSelect) {
+        prodSelect.innerHTML = '';
+        recipes.forEach(r => { r.presets.forEach(p => { prodSelect.innerHTML += `<option value="${r.id}::${p.label}">${r.name} - ${p.label} (Rs.${p.finalPrice.toFixed(2)})</option>`; }); });
+    }
+
+    const dl = document.getElementById('customersList');
+    if (dl) {
+        dl.innerHTML = '';
+        [...new Set(orders.map(o => o.customerName))].forEach(c => { dl.innerHTML += `<option value="${c}">`; });
+    }
 }
 
 window.addIngredientToRecipe = function() {
@@ -271,6 +294,79 @@ function persistAndSync() {
     renderIngredients(); 
     syncDropdownOptions(); 
 }
+
+function exportMaterials() {
+    try {
+        const dataStr = JSON.stringify(materials, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'materials.json';
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+    } catch (err) { alert('Export failed: ' + err.message); }
+}
+
+function handleImportMaterials(event) {
+    const file = event.target.files && event.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const parsed = JSON.parse(e.target.result);
+            if (!Array.isArray(parsed)) return alert('Invalid file format. Expected JSON array.');
+            materials = parsed;
+            persistAndSync();
+            alert('Materials imported successfully.');
+        } catch (err) { alert('Import error: ' + err.message); }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+}
+
+function filterIngredientOptions() {
+    const q = (document.getElementById('recipeIngSearch') ? document.getElementById('recipeIngSearch').value : '').toLowerCase();
+    const sel = document.getElementById('recipeIngSelect'); if (!sel) return;
+    for (let i = 0; i < sel.options.length; i++) {
+        const opt = sel.options[i]; opt.hidden = q && !opt.text.toLowerCase().includes(q);
+    }
+}
+
+async function sendMaterialsToGoogle() {
+    const url = (document.getElementById('sheetsWebhook') || {}).value;
+    if (!url) return alert('Set the Google Sheets webhook URL first.');
+    try {
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'materials_upsert', materials })
+        });
+        const data = await resp.text();
+        alert('Sync complete. Server response: ' + data);
+    } catch (err) { alert('Sync failed: ' + err.message); }
+}
+
+async function pullMaterialsFromGoogle() {
+    const url = (document.getElementById('sheetsWebhook') || {}).value;
+    if (!url) return alert('Set the Google Sheets webhook URL first.');
+    try {
+        const fetchUrl = url + (url.includes('?') ? '&' : '?') + 'action=get_materials';
+        const resp = await fetch(fetchUrl, { method: 'GET' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const remote = await resp.json();
+        if (!Array.isArray(remote)) throw new Error('Unexpected response format');
+        materials = remote;
+        persistAndSync();
+        alert('Materials pulled and imported successfully.');
+    } catch (err) { alert('Pull failed: ' + err.message); }
+}
+
+// Wire sync buttons on DOM ready
+document.addEventListener('DOMContentLoaded', () => {
+    const up = document.getElementById('syncMaterialsUpBtn');
+    const pull = document.getElementById('pullMaterialsBtn');
+    if (up) up.addEventListener('click', sendMaterialsToGoogle);
+    if (pull) pull.addEventListener('click', pullMaterialsFromGoogle);
+});
 
 async function sendOrderToGoogle(order) {
     const url = document.getElementById('sheetsWebhook') ? document.getElementById('sheetsWebhook').value.trim() : '';

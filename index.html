@@ -23,7 +23,9 @@
                         <p class="subtitle">Formulation & Pricing Architecture</p>
                     </div>
                 </div>
-                <div class="currency-tag">LKR (රු.) Live Mode</div>
+                        <button id="testSheetsWebhook">Test</button>
+                        <button id="syncMaterialsUpBtn">Sync Materials Up</button>
+                        <button id="pullMaterialsBtn">Pull Remote Materials</button>
             </div>
 
             <div class="ai-glass-panel">
@@ -93,6 +95,11 @@
                                 <option value="container">Packaging Container Element</option>
                             </select>
                             <button class="action-btn-primary" onclick="addMaterial()">Commit to Local Database</button>
+                            <div style="display:flex; gap:8px; margin-top:8px;">
+                                <button id="exportMaterialsBtn" class="action-btn-secondary">Export Materials</button>
+                                <input type="file" id="importMaterialsFile" accept=".json" style="display:none;">
+                                <button class="action-btn-secondary" onclick="document.getElementById('importMaterialsFile').click()">Import Materials</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -107,7 +114,8 @@
                         <input type="text" id="recipeName" class="premium-input-large" placeholder="Recipe Title (e.g., Hydrating Gel)">
                         
                         <div class="search-picker-box">
-                            <select id="recipeIngSelect"></select>
+                            <input type="text" id="recipeIngSearch" placeholder="Search ingredient..." style="width:40%; padding:8px; border-radius:6px;">
+                            <select id="recipeIngSelect" style="flex:1;"></select>
                             <input type="number" id="recipeIngQty" placeholder="Weight (g)">
                             <button class="add-row-btn" onclick="addIngredientToRecipe()">＋ Inject</button>
                         </div>
@@ -178,6 +186,24 @@
                     </div>
                     <div id="ordersLedger" class="ledger-stack"></div>
                 </div>
+                <div class="glass-card order-creation">
+                    <h3>Create Order</h3>
+                    <div class="order-form" style="display:flex; flex-direction:column; gap:8px;">
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <select id="orderProductSelect" style="flex:1;"></select>
+                            <input type="number" id="orderProductQty" value="1" min="1" style="width:80px;">
+                            <button class="action-btn-secondary" onclick="addItemToOrderBasket()">Add Item</button>
+                        </div>
+                        <ul id="orderBasket" style="min-height:40px; border:1px dashed #ccc; padding:8px; border-radius:6px;"></ul>
+                        <input type="text" id="orderCustName" placeholder="Customer name">
+                        <input type="text" id="orderCustContact" placeholder="Contact (phone/email)">
+                        <div style="display:flex; gap:8px;">
+                            <select id="orderPayStatus"><option value="Unpaid">Unpaid</option><option value="Paid">Paid</option></select>
+                            <select id="orderDevStatus"><option value="Not Made">Not Made</option><option value="Made">Made</option><option value="Delivered">Delivered</option></select>
+                        </div>
+                        <button class="action-btn-primary" onclick="submitFinalOrder()">Submit Order</button>
+                    </div>
+                </div>
             </section>
 
             <section id="earnings" class="tab-content">
@@ -196,5 +222,6 @@
 
     </div>
     <script src="app.js"></script>
+    <button id="fabQuickAdd" class="fab" title="Quick Add">＋</button>
 </body>
 </html>
