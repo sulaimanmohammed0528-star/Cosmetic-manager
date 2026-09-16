@@ -56,6 +56,14 @@
             </div>
         </header>
 
+        <!-- Compact mobile tab bar (redundant, high-z to ensure taps register on small screens) -->
+        <nav class="mobile-tab-quick" aria-hidden="false">
+            <button class="tab-btn" data-target="ingredients">📦</button>
+            <button class="tab-btn" data-target="recipes">🧪</button>
+            <button class="tab-btn" data-target="orders">🛍️</button>
+            <button class="tab-btn" data-target="earnings">📈</button>
+        </nav>
+
         <!-- AUTOMATED ROUTING CLICK ATTRIBUTES DESIGN -->
         <nav class="app-tabs">
             <button class="tab-btn active" data-target="ingredients">📦 Inventory Data</button>

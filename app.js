@@ -88,7 +88,8 @@ window.addEventListener('DOMContentLoaded', () => {
                     });
                 } catch(e) {}
             }
-            btn.classList.add('active');
+            // add active class to all tab buttons that point to the same target (keeps duplicate navs in sync)
+            document.querySelectorAll('.tab-btn[data-target="' + targetTabId + '"]').forEach(el => el.classList.add('active'));
             // refresh dropdowns when switching tabs to avoid zero-size/select issues
             try { syncDropdownOptions(); } catch(e){}
             if (targetTabId === 'recipes') { try { filterIngredientOptions(); } catch(e){} }
@@ -113,6 +114,35 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         } catch (e) {}
     }, { capture: true, passive: false });
+    
+    // Touchstart fallback for older mobile browsers that may not fire pointer events
+    document.addEventListener('touchstart', (ev) => {
+        try {
+            const touch = ev.touches && ev.touches[0];
+            if (!touch) return;
+            const x = touch.clientX, y = touch.clientY;
+            const tabs = Array.from(document.querySelectorAll('.tab-btn'));
+            for (const btn of tabs) {
+                const r = btn.getBoundingClientRect();
+                if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+                    // Trigger activation and prevent the touch from being swallowed by overlays
+                    btn.click();
+                    ev.stopPropagation(); ev.preventDefault();
+                    break;
+                }
+            }
+        } catch (e) {}
+    }, { capture: true, passive: false });
+
+    // Force tab navigation elements to be on top and accept pointer events
+    try {
+        const navEls = Array.from(document.querySelectorAll('nav, .app-tabs, .tab-btn'));
+        navEls.forEach(el => {
+            if (!el) return;
+            el.style.zIndex = el.style.zIndex || '9999';
+            el.style.pointerEvents = 'auto';
+        });
+    } catch (e) {}
     
     const aiBtn = document.getElementById('aiBtn'); if (aiBtn) aiBtn.addEventListener('click', runGeminiCommand);
     const exportBtn = document.getElementById('exportMaterialsBtn'); if (exportBtn) exportBtn.addEventListener('click', exportMaterials);
