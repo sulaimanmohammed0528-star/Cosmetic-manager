@@ -7,6 +7,12 @@ const APP_VERSION = 'v1.0.0';
 const DEFAULT_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/11aKW-aMswgq4Rsn9u4mH6_nZHymA1gn3lkX77zVxW58/edit?gid=0#gid=0';
 let temporaryRecipeIngredients = [], temporaryPresetRules = [], temporaryOrderBasket = [];
 
+// Lightweight DOM helpers to avoid repeated null-checks
+function $id(id) { try { return document.getElementById(id); } catch(e) { return null; } }
+function $val(id) { const e = $id(id); return e ? e.value : ''; }
+function $setText(id, text) { const e = $id(id); if (e) e.innerText = text; }
+function $setHtml(id, html) { const e = $id(id); if (e) e.innerHTML = html; }
+
 // Register background offline tools safely without using modules
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js')
@@ -26,11 +32,14 @@ window.addEventListener('DOMContentLoaded', () => {
     // Auto-load your hidden API keys from your device memory
     const savedKey1 = localStorage.getItem('gemini_key_1');
     const savedKey2 = localStorage.getItem('gemini_key_2');
-    if(savedKey1) document.getElementById('geminiKey1').value = savedKey1;
-    if(savedKey2) document.getElementById('geminiKey2').value = savedKey2;
+    const gem1El = document.getElementById('geminiKey1');
+    const gem2El = document.getElementById('geminiKey2');
+    if (savedKey1 && gem1El) gem1El.value = savedKey1;
+    if (savedKey2 && gem2El) gem2El.value = savedKey2;
     
     if (savedKey1 || savedKey2) {
-        document.querySelector('.ai-glass-panel').style.display = 'none';
+        const aiPanel = document.querySelector('.ai-glass-panel');
+        if (aiPanel) aiPanel.style.display = 'none';
     }
 
     // show version label if present
@@ -50,6 +59,7 @@ window.addEventListener('DOMContentLoaded', () => {
         logo.style.cursor = 'pointer';
         logo.addEventListener('click', () => {
             const panel = document.querySelector('.ai-glass-panel');
+            if (!panel) return;
             panel.style.display = (panel.style.display === 'none') ? 'block' : 'none';
         });
     }
@@ -75,7 +85,7 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     });
     
-    document.getElementById('aiBtn').addEventListener('click', runGeminiCommand);
+    const aiBtn = document.getElementById('aiBtn'); if (aiBtn) aiBtn.addEventListener('click', runGeminiCommand);
     const exportBtn = document.getElementById('exportMaterialsBtn'); if (exportBtn) exportBtn.addEventListener('click', exportMaterials);
     const importFile = document.getElementById('importMaterialsFile'); if (importFile) importFile.addEventListener('change', handleImportMaterials);
     const searchInput = document.getElementById('recipeIngSearch'); if (searchInput) searchInput.addEventListener('input', filterIngredientOptions);
@@ -90,9 +100,12 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 window.addMaterial = function() {
-    const name = document.getElementById('matName').value.trim();
-    const price = parseFloat(document.getElementById('matPrice').value);
-    const type = document.getElementById('matType').value;
+    const nameEl = document.getElementById('matName');
+    const priceEl = document.getElementById('matPrice');
+    const typeEl = document.getElementById('matType');
+    const name = nameEl ? nameEl.value.trim() : '';
+    const price = priceEl ? parseFloat(priceEl.value) : NaN;
+    const type = typeEl ? typeEl.value : 'ingredient';
     if (!name || isNaN(price)) return alert("Please fulfill raw entry values.");
     materials.push({ id: Date.now().toString(), name, price, type });
     persistAndSync();
@@ -105,7 +118,9 @@ window.deleteMaterial = function(id) {
     persistAndSync(); 
 };
 function renderIngredients() {
-    const grid = document.getElementById('ingredientsGrid'); grid.innerHTML = '';
+    const grid = document.getElementById('ingredientsGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
     materials.forEach(m => {
         const div = document.createElement('div'); div.className = 'card';
         div.innerHTML = `<h4>${m.name}</h4><p>Type: <strong>${m.type.toUpperCase()}</strong></p><p>Cost: Rs. ${Number(m.price).toFixed(2)}</p><div style="display:flex; gap:8px; margin-top:8px;"><button onclick="editMaterial('${m.id}')" style="background:#0284c7; font-size:12px; padding:6px; flex:1; border-radius:6px; border:none; color:white;">Edit</button><button onclick="deleteMaterial('${m.id}')" style="background:#dc3545; font-size:12px; padding:6px; flex:1; border-radius:6px; border:none; color:white;">Remove</button></div>`;
@@ -140,13 +155,13 @@ function syncDropdownOptions() {
 
     if (prodSelect) {
         prodSelect.innerHTML = '';
-        recipes.forEach(r => { r.presets.forEach(p => { prodSelect.innerHTML += `<option value="${r.id}::${p.label}">${r.name} - ${p.label} (Rs.${p.finalPrice.toFixed(2)})</option>`; }); });
+        recipes.forEach(r => { (r.presets||[]).forEach(p => { prodSelect.innerHTML += `<option value="${r.id}::${p.label}">${r.name} - ${p.label} (Rs.${(p.finalPrice||0).toFixed(2)})</option>`; }); });
     }
 
     const dl = document.getElementById('customersList');
     if (dl) {
         dl.innerHTML = '';
-        [...new Set(orders.map(o => o.customerName))].forEach(c => { dl.innerHTML += `<option value="${c}">`; });
+        [...new Set(orders.map(o => o.customerName || ''))].forEach(c => { if(c) dl.innerHTML += `<option value="${c}">`; });
     }
 }
 
