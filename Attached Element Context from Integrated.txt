@@ -1,0 +1,80 @@
+Attached Element Context from Integrated Browser
+
+Element: button.tab-btn
+
+URL: file:///C:/Users/Sharmila/Desktop/CosmeticManager/index.html
+
+HTML Path: div.app-layout > nav.mobile-tab-quick > button.tab-btn
+
+Outer HTML:
+```html
+<button class="tab-btn" data-target="recipes" style="z-index: 9999; pointer-events: auto;">🧪</button>
+```
+
+Dimensions:
+- top: 128px
+- left: 85px
+- width: 56px
+- height: 44px
+
+CSS:
+```css
+element { z-index: 9999; pointer-events: auto; }
+.tab-btn { position: relative; z-index: 12; pointer-events: auto; }
+.tab-btn { padding: 12px 18px; background: var(--surface-glass); border: 1px solid var(--border-glass); color: #94a3b8; font-weight: 600; font-size: 13.5px; border-radius: 8px; cursor: pointer; }
+.tab-btn:hover { color: #fff; background: rgba(255,255,255,0.03); }
+
+/* Inherited */
+body { font-family: var(--font-stack); color: var(--text-main) }
+
+/* Resolved values */
+margin: 0px /*UA*/;
+padding: 12px 18px;
+border-radius: 8px;
+border: 0.8px /*UA*/ solid /*UA*/ rgba(255, 255, 255, 0.07) /*UA*/;
+appearance: auto /*UA*/;
+background-attachment: scroll;
+background-clip: border-box;
+background-color: rgba(255, 255, 255, 0.03);
+background-image: none;
+background-origin: padding-box;
+background-position-x: 0%;
+background-position-y: 0%;
+background-repeat: repeat;
+background-size: auto;
+border-image-outset: 0 /*UA*/;
+border-image-repeat: stretch /*UA*/;
+border-image-slice: 100% /*UA*/;
+border-image-source: none /*UA*/;
+border-image-width: 1 /*UA*/;
+box-sizing: border-box /*UA*/;
+color: rgb(255, 255, 255);
+cursor: pointer;
+display: inline-block;
+font-family: Arial;
+font-size: 13.5px;
+font-weight: 600;
+height: 44px;
+letter-spacing: normal /*UA*/;
+line-height: normal /*UA*/;
+padding-block-end: 12px /*UA*/;
+padding-block-start: 12px /*UA*/;
+padding-inline-end: 18px /*UA*/;
+padding-inline-start: 18px /*UA*/;
+pointer-events: auto;
+position: relative;
+text-align: center /*UA*/;
+text-indent: 0px /*UA*/;
+text-rendering: auto /*UA*/;
+text-shadow: none /*UA*/;
+text-transform: none /*UA*/;
+width: 56.1375px;
+word-spacing: 0px /*UA*/;
+z-index: 9999;
+
+/* CSS variables */
+--text-main: #f8fafc;
+--border-glass: rgba(255, 255, 255, 0.07);
+--font-stack: 'Inter', sans-serif;
+--surface-glass: rgba(15, 23, 42, 0.75);
+```
