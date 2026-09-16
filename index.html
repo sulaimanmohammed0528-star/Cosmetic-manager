@@ -56,6 +56,14 @@
             </div>
         </header>
 
+        <!-- Compact mobile tab bar (redundant, high-z to ensure taps register on small screens) -->
+        <nav class="mobile-tab-quick" aria-hidden="false">
+            <button class="tab-btn" data-target="ingredients">📦</button>
+            <button class="tab-btn" data-target="recipes">🧪</button>
+            <button class="tab-btn" data-target="orders">🛍️</button>
+            <button class="tab-btn" data-target="earnings">📈</button>
+        </nav>
+
         <!-- AUTOMATED ROUTING CLICK ATTRIBUTES DESIGN -->
         <nav class="app-tabs">
             <button class="tab-btn active" data-target="ingredients">📦 Inventory Data</button>
@@ -225,6 +233,24 @@
 
             <h2 class="section-title">Published Recipes</h2>
             <div id="recipeGrid" class="grid-container-3x"></div>
+
+            <!-- Company Letterhead / Print Settings -->
+            <section id="companyDetailsSection" class="glass-card" style="margin-top:18px;">
+                <h3>Company Letterhead (Print)</h3>
+                <p class="card-caption">Fill these details once; they'll appear on printouts as your letterhead.</p>
+                <div class="form-structure">
+                    <input type="text" id="companyName" placeholder="Company name (e.g., Acme Cosmetics)">
+                    <input type="text" id="companyAddress" placeholder="Address (line 1, city, postal)">
+                    <input type="text" id="companyPhone" placeholder="Phone number">
+                    <input type="email" id="companyEmail" placeholder="Email address">
+                    <input type="text" id="companyLogoUrl" placeholder="Logo image URL (optional)">
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button id="saveCompanyBtn" class="action-btn-primary">Save Letterhead</button>
+                        <button id="previewCompanyBtn" class="action-btn-secondary" onclick="previewLetterhead()">Preview</button>
+                    </div>
+                    <div id="companyPreview" style="margin-top:10px; font-size:13px; color:#94a3b8;"></div>
+                </div>
+            </section>
 
         </main>
 

@@ -88,7 +88,8 @@ window.addEventListener('DOMContentLoaded', () => {
                     });
                 } catch(e) {}
             }
-            btn.classList.add('active');
+            // add active class to all tab buttons that point to the same target (keeps duplicate navs in sync)
+            document.querySelectorAll('.tab-btn[data-target="' + targetTabId + '"]').forEach(el => el.classList.add('active'));
             // refresh dropdowns when switching tabs to avoid zero-size/select issues
             try { syncDropdownOptions(); } catch(e){}
             if (targetTabId === 'recipes') { try { filterIngredientOptions(); } catch(e){} }
@@ -113,6 +114,35 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         } catch (e) {}
     }, { capture: true, passive: false });
+    
+    // Touchstart fallback for older mobile browsers that may not fire pointer events
+    document.addEventListener('touchstart', (ev) => {
+        try {
+            const touch = ev.touches && ev.touches[0];
+            if (!touch) return;
+            const x = touch.clientX, y = touch.clientY;
+            const tabs = Array.from(document.querySelectorAll('.tab-btn'));
+            for (const btn of tabs) {
+                const r = btn.getBoundingClientRect();
+                if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+                    // Trigger activation and prevent the touch from being swallowed by overlays
+                    btn.click();
+                    ev.stopPropagation(); ev.preventDefault();
+                    break;
+                }
+            }
+        } catch (e) {}
+    }, { capture: true, passive: false });
+
+    // Force tab navigation elements to be on top and accept pointer events
+    try {
+        const navEls = Array.from(document.querySelectorAll('nav, .app-tabs, .tab-btn'));
+        navEls.forEach(el => {
+            if (!el) return;
+            el.style.zIndex = el.style.zIndex || '9999';
+            el.style.pointerEvents = 'auto';
+        });
+    } catch (e) {}
     
     const aiBtn = document.getElementById('aiBtn'); if (aiBtn) aiBtn.addEventListener('click', runGeminiCommand);
     const exportBtn = document.getElementById('exportMaterialsBtn'); if (exportBtn) exportBtn.addEventListener('click', exportMaterials);
@@ -184,7 +214,16 @@ function syncDropdownOptions() {
 
     if (prodSelect) {
         prodSelect.innerHTML = '';
-        recipes.forEach(r => { (r.presets||[]).forEach(p => { prodSelect.innerHTML += `<option value="${r.id}::${p.label}">${r.name} - ${p.label} (Rs.${(p.finalPrice||0).toFixed(2)})</option>`; }); });
+        recipes.forEach(r => {
+            const presets = (r.presets||[]);
+            if (presets.length === 0) {
+                // fallback: expose the recipe itself as a selectable product (no preset pricing)
+                const price = (r.rawBatchCost || 0);
+                prodSelect.innerHTML += `<option value="${r.id}::__default__">${r.name} (Rs.${Number(price).toFixed(2)} - batch)</option>`;
+            } else {
+                presets.forEach(p => { prodSelect.innerHTML += `<option value="${r.id}::${p.label}">${r.name} - ${p.label} (Rs.${(p.finalPrice||0).toFixed(2)})</option>`; });
+            }
+        });
     }
 
     const dl = document.getElementById('customersList');
@@ -266,8 +305,8 @@ function renderRecipes() {
     recipes.forEach(r => {
         let pHTML = '';
         (r.presets||[]).forEach(p => { pHTML += `<div style="font-size:12px; background:#1e293b; padding:6px; margin-top:6px; border-radius:6px; color:#fff;"><strong>${p.label}</strong><br>Cost: Rs. ${Number(p.calculatedCost||0).toFixed(2)} | Price: <strong>Rs. ${Number(p.finalPrice||0).toFixed(2)}</strong></div>`; });
-        const div = document.createElement('div'); div.className = 'card';
-        div.innerHTML = `<h3>🧪 ${r.name}</h3><p class="hint">Batch: ${r.totalBatchWeight}g</p>${pHTML}<div style="display:flex; gap:6px; margin-top:12px;"><button onclick="window.print()" style="background:#0284c7; font-size:11px; flex:1;">🖨️ Print</button><button onclick="deleteRecipe('${r.id}')" style="background:#dc3545; font-size:11px; width:35px;">✕</button></div>`;
+        const div = document.createElement('div'); div.className = 'card'; div.setAttribute('data-recipe-id', r.id);
+        div.innerHTML = `<h3>🧪 ${r.name}</h3><p class="hint">Batch: ${r.totalBatchWeight}g</p>${pHTML}<div style="display:flex; gap:6px; margin-top:12px;"><button onclick="printRecipe('${r.id}')" style="background:#0284c7; font-size:11px; flex:1;">🖨️ Print</button><button onclick="deleteRecipe('${r.id}')" style="background:#dc3545; font-size:11px; width:35px;">✕</button></div>`;
         grid.appendChild(div);
     });
 }
@@ -281,8 +320,14 @@ window.addItemToOrderBasket = function() {
         const [rId, pLabel] = value.split('::');
         const recipe = recipes.find(r => r.id === rId);
         const preset = recipe && recipe.presets ? recipe.presets.find(p => p.label === pLabel) : null;
-        if (!recipe || !preset) return alert('Selected product not found.');
-        item = { recipeId: rId, recipeName: recipe.name, presetLabel: pLabel, qty, unitPrice: preset.finalPrice, unitCost: preset.calculatedCost, fractionCost: preset.fractionCost, containerPrice: preset.containerPrice };
+        if (!recipe) return alert('Selected product not found.');
+        if (!preset) {
+            // fallback for recipes without presets: use rawBatchCost as unit price (per batch)
+            const price = recipe.rawBatchCost || 0;
+            item = { recipeId: rId, recipeName: recipe.name, presetLabel: '__default__', qty, unitPrice: price, unitCost: price, fractionCost: 0, containerPrice: 0 };
+        } else {
+            item = { recipeId: rId, recipeName: recipe.name, presetLabel: pLabel, qty, unitPrice: preset.finalPrice, unitCost: preset.calculatedCost, fractionCost: preset.fractionCost, containerPrice: preset.containerPrice };
+        }
     } else {
         // allow ad-hoc custom product
         const cname = (document.getElementById('orderCustomName') || {}).value || '';
@@ -304,11 +349,21 @@ window.submitFinalOrder = async function() {
     const oc = $id('orderCustName'); if (oc) oc.value = ''; const occ = $id('orderCustContact'); if (occ) occ.value = '';
     persistAndSync(); renderOrders(); calculateEarnings(); scanForPendingAlerts();
     try { await sendOrderToGoogle(newOrder); } catch (e) { console.warn('Send to Google failed', e); }
+    // auto-open earnings tab to show updated analytics
+    try { const btn = document.querySelector('.tab-btn[data-target="earnings"]'); if (btn) btn.click(); const el = document.querySelector('.tab-btn[data-target="earnings"]'); if (el) { el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'), 1600); } } catch(e){}
 };
 
 window.updateOrderStatus = function(id, type, val) {
     const o = orders.find(ord => ord.id === id);
-    if (o) { if (type === 'pay') o.paymentStatus = val; else o.deliveryStatus = val; localStorage.setItem('cosmetic_orders', JSON.stringify(orders)); calculateEarnings(); scanForPendingAlerts(); renderOrders(); }
+    if (o) {
+        if (type === 'pay') o.paymentStatus = val; else o.deliveryStatus = val;
+        localStorage.setItem('cosmetic_orders', JSON.stringify(orders));
+        calculateEarnings(); scanForPendingAlerts(); renderOrders();
+        // if payment settled, show earnings
+        if (type === 'pay' && val === 'Paid') {
+            try { const btn = document.querySelector('.tab-btn[data-target="earnings"]'); if (btn) btn.click(); const el = document.querySelector('.tab-btn[data-target="earnings"]'); if (el) { el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'), 1600); } } catch(e){}
+        }
+    }
 };
 
 window.deleteOrder = function(id) { orders = orders.filter(o => o.id !== id); persistAndSync(); renderOrders(); calculateEarnings(); scanForPendingAlerts(); };
@@ -325,6 +380,7 @@ window.renderOrders = function() {
         let itemsSummary = '', orderTotal = 0;
         o.items.forEach(i => { orderTotal += (i.unitPrice * i.qty); itemsSummary += `<li>${i.qty} x ${i.recipeName} [${i.presetLabel}] - Rs. ${(i.unitPrice * i.qty).toFixed(2)}</li>`; });
         const div = document.createElement('div'); div.className = `ledger-item ${o.paymentStatus === 'Paid' ? 'paid' : ''}`;
+        div.setAttribute('data-order-id', o.id);
         div.innerHTML = `<div style="display:flex; justify-content:space-between; flex-wrap:wrap; width:100%;"><div><strong>👤 Invoice: ${o.customerName}</strong><ul style="font-size:12px;">${itemsSummary}</ul><strong>Total: Rs. ${orderTotal.toFixed(2)}</strong></div><div class="ledger-actions-wrapper"><select onchange="updateOrderStatus('${o.id}', 'pay', this.value)"><option value="Unpaid" ${o.paymentStatus==='Unpaid'?'selected':''}>❌ Unpaid</option><option value="Paid" ${o.paymentStatus==='Paid'?'selected':''}>Account Settled</option></select><select onchange="updateOrderStatus('${o.id}', 'dev', this.value)"><option value="Not Made" ${o.deliveryStatus==='Not Made'?'selected':''}>⏳ Pending Mix</option><option value="Made" ${o.deliveryStatus==='Made'?'selected':''}>🛠️ Ready</option><option value="Delivered" ${o.deliveryStatus==='Delivered'?'selected':''}>📦 Shipped</option></select><div style="display:flex; gap:4px; margin-top:2px;"><button onclick="printSingleInvoice(this)" style="background:#0284c7; font-size:11px; flex:1;">🖨️ Print</button><button onclick="deleteOrder('${o.id}')" style="background:#dc3545; font-size:11px;">✕</button></div></div></div>`;
         ledger.appendChild(div);
     });
@@ -332,18 +388,138 @@ window.renderOrders = function() {
 // PART 5B: PRINTING, NOTIFICATIONS, EXCEL PARSING, & TWIN GEMINI SUITE
 window.printSingleInvoice = function(buttonEl) {
     const parentItem = buttonEl.closest('.ledger-item');
-    parentItem.classList.add('force-print-target');
-    window.print();
-    parentItem.classList.remove('force-print-target');
+    if (!parentItem) return;
+    const orderId = parentItem.getAttribute('data-order-id');
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return alert('Order not found for printing');
+    const invoiceHtml = buildInvoiceHtml(order);
+    buildPrintDocument(invoiceHtml, 'Invoice');
 };
 
+// Build printable document with company letterhead and content
+function getCompanyDetails() {
+    try { return JSON.parse(localStorage.getItem('company_details') || '{}') || {}; } catch(e) { return {}; }
+}
+
+function saveCompanyDetails() {
+    const details = {
+        name: (document.getElementById('companyName') || {}).value || '',
+        address: (document.getElementById('companyAddress') || {}).value || '',
+        phone: (document.getElementById('companyPhone') || {}).value || '',
+        email: (document.getElementById('companyEmail') || {}).value || '',
+        logo: (document.getElementById('companyLogoUrl') || {}).value || ''
+    };
+    localStorage.setItem('company_details', JSON.stringify(details));
+    renderCompanyPreview();
+    alert('Company letterhead saved.');
+}
+
+function renderCompanyPreview() {
+    const p = document.getElementById('companyPreview'); if (!p) return;
+    const d = getCompanyDetails();
+    let html = '';
+    if (d.logo) html += `<div style="display:flex; align-items:center; gap:12px;"><img src="${d.logo}" style="height:48px; object-fit:contain;" alt="logo"><div>`;
+    html += `<strong style="font-size:16px; color:#fff;">${d.name||' '}</strong><div style="font-size:12px; color:#94a3b8;">${d.address||''}</div><div style="font-size:12px; color:#94a3b8;">${d.phone||''} ${d.email? '• ' + d.email : ''}</div>`;
+    if (d.logo) html += '</div></div>';
+    p.innerHTML = html;
+}
+
+function escapeHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function buildInvoiceHtml(order) {
+        const d = getCompanyDetails();
+        const date = new Date(order.date || Date.now()).toLocaleString();
+        const itemsRows = (order.items||[]).map(i => {
+                const desc = escapeHtml(i.recipeName || 'Item');
+                const qty = Number(i.qty||1);
+                const unit = Number(i.unitPrice||0);
+                const line = (qty * unit).toFixed(2);
+                return `<tr><td style="padding:8px; border-bottom:1px solid #eee;">${desc}${i.presetLabel && i.presetLabel!=='__default__' ? ' <small>('+escapeHtml(i.presetLabel)+')</small>' : ''}</td><td style="padding:8px; text-align:center; border-bottom:1px solid #eee;">${qty}</td><td style="padding:8px; text-align:right; border-bottom:1px solid #eee;">Rs. ${unit.toFixed(2)}</td><td style="padding:8px; text-align:right; border-bottom:1px solid #eee;">Rs. ${line}</td></tr>`;
+        }).join('');
+        const subtotal = (order.items||[]).reduce((s,i)=> s + ((Number(i.unitPrice)||0) * (Number(i.qty)||1)), 0);
+        const cust = escapeHtml(order.customerName || '');
+        const contact = escapeHtml(order.contact || '');
+        const payment = escapeHtml(order.paymentStatus || '');
+        const headerLogo = d.logo ? `<img src="${d.logo}" style="height:64px; object-fit:contain; margin-right:12px;" alt="logo">` : '';
+        return `
+        <div style="max-width:800px; margin:0 auto; font-family: Arial, Helvetica, sans-serif; color:#111;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+                <div style="display:flex; align-items:center; gap:12px;">${headerLogo}<div><div style="font-size:20px; font-weight:800;">${escapeHtml(d.name||'')}</div><div style="font-size:12px; color:#333;">${escapeHtml(d.address||'')}</div><div style="font-size:12px; color:#333;">${escapeHtml(d.phone||'')} ${d.email? '• ' + escapeHtml(d.email): ''}</div></div></div>
+                <div style="text-align:right; font-size:12px; color:#333;"><div style="font-weight:700; font-size:16px;">Invoice</div><div>#${order.id}</div><div>${date}</div></div>
+            </div>
+            <div style="margin-bottom:12px; display:flex; justify-content:space-between;">
+                <div><strong>Bill To:</strong><div>${cust}</div><div style="font-size:12px; color:#444;">${contact}</div></div>
+                <div style="text-align:right;"><strong>Payment Status:</strong><div>${payment}</div></div>
+            </div>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:12px;">
+                <thead><tr style="background:#f3f4f6;"><th style="text-align:left; padding:8px;">Description</th><th style="width:80px; text-align:center;">Qty</th><th style="width:120px; text-align:right;">Unit</th><th style="width:140px; text-align:right;">Line Total</th></tr></thead>
+                <tbody>${itemsRows}</tbody>
+            </table>
+            <div style="display:flex; justify-content:flex-end; gap:12px; font-size:14px; font-weight:700;">
+                <div style="text-align:right;">Subtotal:<div style="font-size:18px; margin-top:6px;">Rs. ${subtotal.toFixed(2)}</div></div>
+            </div>
+            <div style="margin-top:28px; font-size:12px; color:#555;">Thank you for your purchase. Generated by Cosmetic Lab Suite.</div>
+        </div>
+        `;
+}
+
+function previewLetterhead() { renderCompanyPreview(); alert('Preview updated below the form.'); }
+
+function buildPrintDocument(contentHtml, title) {
+    // create or reuse a print frame
+    let frame = document.getElementById('printFrame');
+    if (!frame) { frame = document.createElement('div'); frame.id = 'printFrame'; document.body.appendChild(frame); }
+    const d = getCompanyDetails();
+    const logoHtml = d.logo ? `<img src="${d.logo}" style="height:64px; object-fit:contain; margin-right:12px;" alt="logo">` : '';
+    const headerHtml = `<div class="print-letterhead" style="display:flex; align-items:center; gap:12px; margin-bottom:12px; border-bottom:1px solid #ddd; padding-bottom:10px;"><div style="flex:0 0 auto;">${logoHtml}</div><div style="flex:1 1 auto;"><div style="font-size:20px; font-weight:800; color:#000;">${escapeHtml(d.name||'')}</div><div style="font-size:12px; color:#333;">${escapeHtml(d.address||'')}</div><div style="font-size:12px; color:#333;">${escapeHtml(d.phone||'')} ${d.email? '• ' + escapeHtml(d.email): ''}</div></div></div>`;
+    frame.innerHTML = `<div class="print-body" style="background:#fff; color:#000; padding:18px; font-family:Arial, Helvetica, sans-serif;">${headerHtml}<div class="print-content">${contentHtml}</div></div>`;
+    // Trigger print
+    setTimeout(() => { window.print(); }, 60);
+}
+
+function escapeHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Print a recipe card by id (renderRecipes sets data-recipe-id)
+// Build printable recipe HTML (clean, no buttons)
+function buildRecipeHtml(recipe) {
+        const d = getCompanyDetails();
+        const title = escapeHtml(recipe.name || 'Recipe');
+        const batch = recipe.totalBatchWeight || 0;
+        const rows = (recipe.ingredients||[]).map(i => `<tr><td style="padding:8px; border-bottom:1px solid #eee;">${escapeHtml(i.name)}</td><td style="padding:8px; text-align:center;">${Number(i.qty).toFixed(1)} g</td><td style="padding:8px; text-align:right;">Rs. ${Number(i.pricePerGram||0).toFixed(2)}</td><td style="padding:8px; text-align:right;">Rs. ${(Number(i.qty||0) * Number(i.pricePerGram||0)).toFixed(2)}</td></tr>`).join('');
+        const totalCost = (recipe.rawBatchCost || 0).toFixed(2);
+        return `
+            <div style="max-width:800px; margin:0 auto; font-family: Arial, Helvetica, sans-serif; color:#111;">
+                <div style="margin-bottom:12px;"><div style="font-size:20px; font-weight:800;">${escapeHtml(d.name||'')}</div><div style="font-size:12px; color:#333;">${escapeHtml(d.address||'')}</div></div>
+                <h2 style="margin:8px 0;">${title}</h2>
+                <div style="margin-bottom:8px;">Batch Weight: <strong>${batch} g</strong></div>
+                <table style="width:100%; border-collapse:collapse; margin-bottom:12px;">
+                    <thead><tr style="background:#f3f4f6;"><th style="text-align:left; padding:8px;">Ingredient</th><th style="width:120px; text-align:center;">Weight</th><th style="width:140px; text-align:right;">Cost/g</th><th style="width:140px; text-align:right;">Line Cost</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                <div style="display:flex; justify-content:flex-end; font-weight:700;">Total Cost: Rs. ${totalCost}</div>
+            </div>
+        `;
+}
+
+function printRecipe(id) {
+        const r = recipes.find(x => x.id === id);
+        if (!r) return alert('Recipe not found for printing.');
+        const html = buildRecipeHtml(r);
+        buildPrintDocument(html, 'Recipe');
+}
+
 function calculateEarnings() {
-    let rev = 0, cost = 0, other = 0;
-    orders.forEach(o => { o.items.forEach(i => { rev += (i.unitPrice * i.qty); cost += ((i.fractionCost + i.containerPrice) * i.qty); other += ((i.unitCost - (i.fractionCost + i.containerPrice)) * i.qty); }); });
-    $setText('totalRevenue', `Rs. ${rev.toFixed(2)}`);
+    let revAll = 0, revPaid = 0, cost = 0, other = 0;
+    orders.forEach(o => {
+        let orderTotal = 0;
+        o.items.forEach(i => { const line = (i.unitPrice * i.qty); orderTotal += line; cost += ((i.fractionCost + i.containerPrice) * i.qty); other += ((i.unitCost - (i.fractionCost + i.containerPrice)) * i.qty); });
+        revAll += orderTotal;
+        if (o.paymentStatus === 'Paid') revPaid += orderTotal;
+    });
+    $setText('totalRevenue', `Rs. ${revAll.toFixed(2)} (Realized: Rs. ${revPaid.toFixed(2)})`);
     $setText('totalCost', `Rs. ${cost.toFixed(2)}`);
     $setText('totalOther', `Rs. ${other.toFixed(2)}`);
-    $setText('totalProfit', `Rs. ${(rev - cost - other).toFixed(2)}`);
+    $setText('totalProfit', `Rs. ${(revPaid - cost - other).toFixed(2)}`);
 }
 
 window.scanForPendingAlerts = function() {
