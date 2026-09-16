@@ -43,6 +43,12 @@ body {
     gap: 24px;
 }
 
+/* Ensure tabs are on top and clickable; fix accidental overlays */
+.app-header { position: relative; z-index: 10; }
+.app-tabs { position: relative; z-index: 11; }
+.tab-btn { position: relative; z-index: 12; pointer-events: auto; }
+.ai-glass-panel { pointer-events: auto; }
+
 .logo-area { display: flex; align-items: center; gap: 16px; }
 .logo-icon {
     font-size: 28px;

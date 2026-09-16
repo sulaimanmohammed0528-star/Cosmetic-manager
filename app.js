@@ -96,6 +96,23 @@ window.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => { const f = targetContent && targetContent.querySelector('input, select, button'); if (f) f.focus(); }, 120);
         });
     });
+
+    // Capture-phase pointer handler: if an overlay blocks direct clicks,
+    // this will still detect taps at the tab positions and activate tabs.
+    document.addEventListener('pointerdown', (ev) => {
+        try {
+            const x = ev.clientX, y = ev.clientY;
+            const tabs = Array.from(document.querySelectorAll('.tab-btn'));
+            for (const btn of tabs) {
+                const r = btn.getBoundingClientRect();
+                if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+                    btn.click();
+                    ev.stopPropagation(); ev.preventDefault();
+                    break;
+                }
+            }
+        } catch (e) {}
+    }, { capture: true, passive: false });
     
     const aiBtn = document.getElementById('aiBtn'); if (aiBtn) aiBtn.addEventListener('click', runGeminiCommand);
     const exportBtn = document.getElementById('exportMaterialsBtn'); if (exportBtn) exportBtn.addEventListener('click', exportMaterials);
