@@ -178,13 +178,15 @@ window.addItemToOrderBasket = function() {
     document.getElementById('orderBasket').appendChild(li);
 };
 
-window.submitFinalOrder = function() {
+window.submitFinalOrder = async function() {
     const name = document.getElementById('orderCustName').value.trim();
     if (!name || temporaryOrderBasket.length === 0) return alert("Basket empty.");
-    orders.push({ id: Date.now().toString(), customerName: name, contact: document.getElementById('orderCustContact').value.trim(), items: [...temporaryOrderBasket], paymentStatus: document.getElementById('orderPayStatus').value, deliveryStatus: document.getElementById('orderDevStatus').value, date: new Date().toISOString() });
+    const newOrder = { id: Date.now().toString(), customerName: name, contact: document.getElementById('orderCustContact').value.trim(), items: [...temporaryOrderBasket], paymentStatus: document.getElementById('orderPayStatus').value, deliveryStatus: document.getElementById('orderDevStatus').value, date: new Date().toISOString() };
+    orders.push(newOrder);
     temporaryOrderBasket = []; document.getElementById('orderBasket').innerHTML = '';
     document.getElementById('orderCustName').value = ''; document.getElementById('orderCustContact').value = '';
     persistAndSync(); renderOrders(); calculateEarnings(); scanForPendingAlerts();
+    try { await sendOrderToGoogle(newOrder); } catch (e) { console.warn('Send to Google failed', e); }
 };
 
 window.updateOrderStatus = function(id, type, val) {
@@ -268,6 +270,30 @@ function persistAndSync() {
     localStorage.setItem('cosmetic_orders', JSON.stringify(orders)); 
     renderIngredients(); 
     syncDropdownOptions(); 
+}
+
+async function sendOrderToGoogle(order) {
+    const url = document.getElementById('sheetsWebhook') ? document.getElementById('sheetsWebhook').value.trim() : '';
+    if (!url) return; // silently skip when not configured
+    try {
+        const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(order) });
+        if (!resp.ok) throw new Error('Request failed with ' + resp.status);
+        console.log('Order sent to Google Sheets webhook');
+    } catch (err) {
+        console.error('sendOrderToGoogle error', err);
+        throw err;
+    }
+}
+
+window.testSheetWebhook = async function() {
+    const url = document.getElementById('sheetsWebhook') ? document.getElementById('sheetsWebhook').value.trim() : '';
+    if (!url) return alert('Paste your Apps Script Webhook URL in the field first.');
+    try {
+        const sample = { test: true, time: new Date().toISOString(), note: 'Sample ping from Cosmetic Lab Suite' };
+        const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sample) });
+        if (!r.ok) throw new Error('Response ' + r.status);
+        alert('Webhook responded OK.');
+    } catch (e) { alert('Webhook test failed: ' + e.message); }
 }
 
 async function runGeminiCommand() {

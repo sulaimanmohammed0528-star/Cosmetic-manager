@@ -16,7 +16,7 @@ self.addEventListener('message', (event) => {
         self.registration.showNotification(event.data.title, {
             body: event.data.body,
             icon: 'https://flaticon.com',
-            vibrate:,
+            vibrate: [100, 50, 100],
             badge: 'https://flaticon.com'
         });
     }

@@ -6,12 +6,11 @@
     <title>Cosmetic Lab Suite (LKR)</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
-    <link rel="preconnect" href="https://googleapis.com">
-    <link rel="preconnect" href="https://gstatic.com" crossorigin>
-    <link href="https://googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://jsdelivr.net"></script>
-    <!-- Direct CDN script connection instead of the broken import maps module system -->
-    <script src="https://cdn.jsdelivr.net/npm/@google/generative-ai@0.24.1/dist/index.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <!-- Generative AI SDK removed — browser bundle caused runtime ReferenceError -->
 </head>
 <body>
     <div class="app-layout">
@@ -38,6 +37,10 @@
                     </div>
                     <input type="password" id="geminiKey1" placeholder="Paste Primary Gemini API Key..." style="width: 100%; font-size: 11px; padding: 6px; box-sizing: border-box;">
                     <input type="password" id="geminiKey2" placeholder="Paste Backup Gemini API Key..." style="width: 100%; font-size: 11px; padding: 6px; box-sizing: border-box;" class="hidden-key-input">
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" id="sheetsWebhook" placeholder="Google Sheets Webhook URL (Apps Script)" style="flex:1; font-size: 11px; padding: 6px; box-sizing: border-box;">
+                        <button class="action-btn-secondary" onclick="testSheetWebhook()" style="padding:6px 10px;">Test</button>
+                    </div>
                 </div>
                 <div class="ai-input-group" style="margin-top: 8px;">
                     <input type="text" id="aiPrompt" placeholder="Ask Lab Assistant: 'Log order for client Nimal...' ">
@@ -158,4 +161,40 @@
                                 <option value="fixed">Fixed LKR Yield</option>
                             </select>
                             <button class="action-btn-secondary" onclick="addPresetRule()">＋ Add Retail Variant Rule</button>
+                            <ul id="presetRulesList" class="premium-ruled-list"></ul>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="orders" class="tab-content">
+                <div class="glass-card ledger-control-panel">
+                    <h3>Order Ledger</h3>
+                    <div class="split-status-selectors">
+                        <input type="text" id="filterSearch" placeholder="Search customer or product...">
+                        <select id="filterPayment" class="status-dropdown"><option value="all">All Payments</option><option value="Paid">Paid</option><option value="Unpaid">Unpaid</option></select>
+                        <select id="filterDelivery" class="status-dropdown"><option value="all">All Delivery</option><option value="Not Made">Not Made</option><option value="Made">Made</option><option value="Delivered">Delivered</option></select>
+                        <select id="sortOrders" class="status-dropdown"><option value="newest">Newest</option><option value="oldest">Oldest</option></select>
+                    </div>
+                    <div id="ordersLedger" class="ledger-stack"></div>
+                </div>
+            </section>
+
+            <section id="earnings" class="tab-content">
+                <div class="analytics-dashboard-summary">
+                    <div class="metric-glass-card"><h3>Total Revenue</h3><p id="totalRevenue" class="metric-value">Rs. 0.00</p></div>
+                    <div class="metric-glass-card"><h3>Total Cost</h3><p id="totalCost" class="metric-value">Rs. 0.00</p></div>
+                    <div class="metric-glass-card"><h3>Other</h3><p id="totalOther" class="metric-value">Rs. 0.00</p></div>
+                    <div class="metric-glass-card net-profit-card"><h3>Net Profit</h3><p id="totalProfit" class="metric-value-profit">Rs. 0.00</p></div>
+                </div>
+            </section>
+
+            <h2 class="section-title">Published Recipes</h2>
+            <div id="recipeGrid" class="grid-container-3x"></div>
+
+        </main>
+
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
