@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmetic Lab Suite (LKR)</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://googleapis.com">
+    <link rel="preconnect" href="https://gstatic.com" crossorigin>
+    <link href="https://googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://jsdelivr.net"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "@google/generative-ai": "https://esm.run"
+        }
+      }
+    </script>
+</head>
+<body>
+    <div class="app-layout">
+        <!-- APP MASTER BRAND HEADER -->
+        <header class="app-header">
+            <div class="header-main-brand">
+                <div class="logo-area">
+                    <span class="logo-icon">🧪</span>
+                    <div>
+                        <h1>Cosmetic Lab Suite</h1>
+                        <p class="subtitle">Formulation & Pricing Architecture</p>
+                    </div>
+                </div>
+                <div class="currency-tag">LKR (Rs.) Live Mode</div>
+            </div>
+
+            <!-- GEMINI INTUITION BAR -->
+            <!-- REPLACE WITH THIS UPDATED BLOCK: -->
+<div class="ai-glass-panel">
+    <div class="ai-key-row" style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+            <span class="ai-pulse"></span>
+            <select id="activeKeySlot" style="padding: 4px; font-size: 11px; background: rgba(15,23,42,0.6); color: #fff;" onchange="updateKeyPlaceholder()">
+                <option value="key1">API Key 1 (Primary)</option>
+                <option value="key2">API Key 2 (Backup)</option>
+            </select>
+        </div>
+        <input type="password" id="geminiKey1" placeholder="Paste Primary Gemini API Key..." style="width: 100%; font-size: 11px; padding: 6px; box-sizing: border-box;">
+        <input type="password" id="geminiKey2" placeholder="Paste Backup Gemini API Key..." style="width: 100%; font-size: 11px; padding: 6px; box-sizing: border-box;" class="hidden-key-input">
+    </div>
+    <div class="ai-input-group" style="margin-top: 8px;">
+        <input type="text" id="aiPrompt" placeholder="Ask Lab Assistant: 'Log order for client Nimal...' ">
+        <button id="aiBtn">Process Voice</button>
+    </div>
+    <p id="aiStatus">System standing by for instructions</p>
+</div>
+
+        </header>
+
+        <!-- DASHBOARD NAVIGATION TABS -->
+        <!-- CHUNK 1: REPLACE THIS EXACT TAB SECTION IN YOUR index.html -->
+         <nav class="app-tabs">
+                     <button class="tab-btn active" onclick="switchTab('ingredients', this, event)">📦 Inventory Data</button>
+                     <button class="tab-btn" onclick="switchTab('recipes', this, event)">🧪 Formula Engine</button>
+                     <button class="tab-btn" onclick="switchTab('orders', this, event)">🛍️ Order Ledger</button>
+                     <button class="tab-btn" onclick="switchTab('earnings', this, event)">📈 Yield Analytics</button>
+         </nav>
+
+
+        <!-- NOTIFICATION ALERTS DISPATCHER -->
+        <div id="notificationCenter" class="notification-banner hidden">
+            <div class="notif-header">
+                <div class="notif-title-group">
+                    <span class="bell-icon">🔔</span>
+                    <strong>Priority Action Reminders</strong>
+                </div>
+                <button class="dismiss-btn" onclick="toggleNotifPanel()">✕ Clear Alerts</button>
+            </div>
+            <ul id="notifList"></ul>
+        </div>
+
+        <main class="content-frame">
+            <!-- TAB 1: INGREDIENTS AND CONTAINERS DESIGN -->
+            <section id="ingredients" class="tab-content active">
+                <div class="workspace-grid">
+                    <div class="glass-card upload-zone">
+                        <h3>Bulk Cloud Sync</h3>
+                        <p class="card-caption">Instantly parse master inventory files from Excel sheets.</p>
+                        <div class="file-drop-area">
+                            <input type="file" id="excelFile" accept=".xlsx, .xls" onchange="handleExcelUpload(event)">
+                            <div class="dummy-upload-btn">📁 Drag & Drop or Click to Upload</div>
+                        </div>
+                        <span class="hint">Sheet 1: 'Ingredients' (Per Gram) • Sheet 2: 'Containers' (Per Unit)</span>
+                    </div>
+
+                    <div class="glass-card">
+                        <h3>Add Raw Materials</h3>
+                        <p class="card-caption">Manually register individual pricing entries.</p>
+                        <div class="form-structure">
+                            <input type="text" id="matName" placeholder="Material Label Name">
+                            <input type="number" id="matPrice" placeholder="Base Price (LKR)">
+                            <select id="matType">
+                                <option value="ingredient">Ingredient Raw Specimen</option>
+                                <option value="container">Packaging Container Element</option>
+                            </select>
+                            <button class="action-btn-primary" onclick="addMaterial()">Commit to Local Database</button>
+                        </div>
+                    </div>
+                </div>
+                <h2 class="section-title">Active Database Core</h2>
+                <div id="ingredientsGrid" class="grid-container-3x"></div>
+            </section>
+            <!-- TAB 2: RECIPE CREATOR ARCHITECTURE -->
+            <section id="recipes" class="tab-content">
+                <div class="workspace-grid-2col">
+                    <div class="glass-card formula-architecture">
+                        <h3>New Formula Design Matrix</h3>
+                        <input type="text" id="recipeName" class="premium-input-large" placeholder="Recipe Title (e.g., Hydrating Gel)">
+                        
+                        <div class="search-picker-box">
+                            <select id="recipeIngSelect"></select>
+                            <input type="number" id="recipeIngQty" placeholder="Weight (g)">
+                            <button class="add-row-btn" onclick="addIngredientToRecipe()">＋ Inject</button>
+                        </div>
+
+                        <div class="table-container">
+                            <table class="premium-table">
+                                <thead>
+                                    <tr><th>Raw Ingredient Specimen</th><th>Weight</th><th>Cost/g</th><th>Net Cost</th><th>Action</th></tr>
+                                </thead>
+                                <tbody id="recipeRows"></tbody>
+                            </table>
+                        </div>
+
+                        <div class="financial-adjustments-card">
+                            <h4>Batch Financial Fine-Tuning</h4>
+                            <div class="form-row-inline">
+                                <label>Fixed Batch Overheads (LKR):</label>
+                                <input type="number" id="batchOther" value="0" oninput="calculateActiveRecipe()">
+                            </div>
+                            <div class="form-row-inline">
+                                <label>Batch Profit Buffer:</label>
+                                <div class="input-unit-group">
+                                    <input type="number" id="batchProfit" value="0" oninput="calculateActiveRecipe()">
+                                    <select id="batchProfitType" onchange="calculateActiveRecipe()">
+                                        <option value="percent">% Markup</option>
+                                        <option value="fixed">Flat LKR</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="yield-summary-box">
+                            <div class="yield-metric">Weight <span id="lblBatchWeight">0</span>g</div>
+                            <div class="yield-metric">Raw Cost <span class="val-color">Rs. <span id="lblBatchRawCost">0.00</span></span></div>
+                            <div class="yield-metric highlight-metric">Batch Yield Value <span class="val-color">Rs. <span id="lblBatchFinalCost">0.00</span></span></div>
+                            <button class="save-master-btn" onclick="saveRecipe()">✓ Publish Formula to Directory</button>
+                        </div>
+                    </div>
+
+                    <div class="glass-card packaging-configurator">
+                        <h3>Retail Presets Configurator</h3>
+                        <p class="card-caption">Build consumer distribution weights and packaging dropdown configurations.</p>
+                        <div class="form-structure">
+                            <input type="text" id="presetLabel" placeholder="Variant Label Name (e.g., 50ml Jar)">
+                            <input type="number" id="presetWeight" placeholder="Target Fill Weight (g)">
+                            <select id="presetContainerSelect"></select>
+                            <input type="number" id="presetProfit" placeholder="Variant Net Profit Margin">
+                            <select id="presetProfitType">
+                                <option value="percent">% Margin Markup</option>
+                                <option value="fixed">Fixed LKR Yield</option>
+                            </select>
+                            <button class="action-btn-secondary" onclick="addPresetRule()">＋ Add Retail Variant Rule</button>
+                        </div>
+                        <ul id="presetRulesList" class="premium-ruled-list"></ul>
+                    </div>
+                </div>
+
+                <h2 class="section-title">Published Formulas Directory (3-Column View)</h2>
+                <div id="recipeGrid" class="grid-container-3x"></div>
+            </section>
+
+            <!-- TAB 3: MODERN ORDER BOOK LEDGER -->
+            <section id="orders" class="tab-content">
+                <div class="workspace-grid-2col">
+                    <div class="glass-card">
+                        <h3>Record Multi-Item Client Order</h3>
+                        <div class="form-structure">
+                            <div class="input-icon-wrapper">
+                                <input type="text" id="orderCustName" placeholder="Client Consumer Name" list="customersList">
+                                <datalist id="customersList"></datalist>
+                            </div>
+                            <input type="text" id="orderCustContact" placeholder="Contact Mobile Sequence (Optional)">
+                            
+                            <div class="search-picker-box">
+                                <select id="orderProductSelect"></select>
+                                <input type="number" id="orderProductQty" value="1" min="1">
+                                <button class="add-row-btn" onclick="addItemToOrderBasket()">🛒 Load</button>
+                            </div>
+                            
+                            <ul id="orderBasket" class="premium-basket-list"></ul>
+                            
+                            <div class="split-status-selectors">
+                                <select id="orderPayStatus" class="status-dropdown unpaid-theme">
+                                    <option value="Unpaid">❌ Account Unpaid</option>
+                                    <option value="Paid">✅ Account Settled</option>
+                                </select>
+                                <select id="orderDevStatus" class="status-dropdown execution-theme">
+                                    <option value="Not Made">⏳ Pending Lab Mix</option>
+                                    <option value="Made">🛠️ Formulation Ready</option>
+                                    <option value="Delivered">📦 Shipped/Delivered</option>
+                                </select>
+                            </div>
+                            <button class="save-master-btn" onclick="submitFinalOrder()">💾 File Invoices & Save Log</button>
+                        </div>
+                    </div>
+
+                    <div class="glass-card ledger-control-panel">
+                        <h3>Ledger Filtering Suite</h3>
+                        <div class="form-structure">
+                            <input type="text" id="filterSearch" placeholder="Search invoices by client name..." oninput="renderOrders()">
+                            <select id="filterPayment" onchange="renderOrders()">
+                                <option value="all">Display All Payment Realities</option>
+                                <option value="Paid">Settled Ledger Rows Only</option>
+                                <option value="Unpaid">Outstanding Balances Only</option>
+                            </select>
+                            <select id="filterDelivery" onchange="renderOrders()">
+                                <option value="all">Display All Factory States</option>
+                                <option value="Not Made">Pending Lab Execution</option>
+                                <option value="Made">Formulated Batches</option>
+                                <option value="Delivered">Dispatched Packages</option>
+                            </select>
+                            <select id="sortOrders" onchange="renderOrders()">
+                                <option value="newest">Chronological: Newest First</option>
+                                <option value="oldest">Chronological: Oldest First</option>
+                                <option value="valueHigh">Capitalization: High Value</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 class="section-title">Consolidated Order Ledger Logs</h2>
+                <div id="ordersLedger" class="ledger-stack"></div>
+            </section>
+
+            <!-- TAB 4: YIELD SUMMARY CORE -->
+            <section id="earnings" class="tab-content">
+                <div class="analytics-dashboard-summary">
+                    <div class="metric-glass-card">
+                        <span class="metric-icon">💰</span>
+                        <h3>Gross Revenue Yield</h3>
+                        <p id="totalRevenue" class="metric-value">Rs. 0.00</p>
+                    </div>
+                    <div class="metric-glass-card">
+                        <span class="metric-icon">🔬</span>
+                        <h3>Pure Formulation Cost</h3>
+                        <p id="totalCost" class="metric-value">Rs. 0.00</p>
+                    </div>
+                    <div class="metric-glass-card">
+                        <span class="metric-icon">⚙️</span>
+                        <h3>Amortized Overheads</h3>
+                        <p id="totalOther" class="metric-value">Rs. 0.00</p>
+                    </div>
+                    <div class="metric-glass-card net-profit-card">
+                        <span class="metric-icon">📈</span>
+                        <h3>Net Corporate Profit</h3>
+                        <p id="totalProfit" class="metric-value-profit">Rs. 0.00</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script type="module" src="app.js"></script>
