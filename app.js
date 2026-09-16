@@ -61,8 +61,17 @@ window.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             
             const targetContent = document.getElementById(targetTabId);
-            if (targetContent) targetContent.classList.add('active');
+            if (targetContent) {
+                targetContent.classList.add('active');
+                // ensure visible and scrolled into view on small screens
+                try { targetContent.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(e) {}
+            }
             btn.classList.add('active');
+            // refresh dropdowns when switching tabs to avoid zero-size/select issues
+            try { syncDropdownOptions(); } catch(e){}
+            if (targetTabId === 'recipes') { try { filterIngredientOptions(); } catch(e){} }
+            // focus first input for convenience
+            setTimeout(() => { const f = targetContent && targetContent.querySelector('input, select, button'); if (f) f.focus(); }, 120);
         });
     });
     
